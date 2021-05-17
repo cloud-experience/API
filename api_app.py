@@ -1,24 +1,31 @@
-from flask import Flask, jsonify
+from flask import Flask, render_template, request, redirect
 from flaskext.mysql import MySQL
-
 app = Flask(__name__)
-mysql = MySQL()
 
-# MySQL configurations
-app.config['MYSQL_DATABASE_USER'] = 'admin'
+# DB connection info
+app.config['MYSQL_DATABASE_USER'] = 'root'
 app.config['MYSQL_DATABASE_PASSWORD'] = 'password'
 app.config['MYSQL_DATABASE_DB'] = 'nuspamdb'
-app.config['MYSQL_DATABASE_HOST'] = 'database-2.cnr20hoyd3cu.ap-northeast-2.rds.amazonaws.com'
+app.config['MYSQL_DATABASE_HOST'] = 'localhost'
 
+mysql = MySQL()
 mysql.init_app(app)
+conn = mysql.connect()
+cursor = conn.cursor()
 
-@app.route('/')
-def get():
-    cur = mysql.connect().cursor()
-    cur.execute('''select * from nuspamdb.urlinfo''')
-    r = [dict((cur.description[i][0], value)
-                for i, value in enumerate(row)) for row in cur.fetchall()]
-    return jsonify({'URL_INFORMATION' : r})
+# endpoint for search
+@app.route('/search', methods=['GET', 'POST'])
+def search():
+    if request.method == "POST":
+        urlinfo = request.form['urlinfo']
+        # search
+        cursor.execute("SELECT url, sort from urlinfo WHERE url LIKE %s OR sort LIKE %s", (urlinfo, urlinfo))
+        conn.commit()
+        data = cursor.fetchall()
+        return render_template('search.html', data=data)
+    return render_template('search.html')
 
 if __name__ == '__main__':
+    app.debug = True
     app.run()
+
